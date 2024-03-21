@@ -4,7 +4,22 @@ import { Button } from "@nextui-org/button";
 import { Input } from "@nextui-org/input";
 import React, { useEffect, useState } from "react";
 import Google from "@/public/icons/google.svg";
-import { Select, SelectItem, Spinner } from "@nextui-org/react";
+import {
+  Card,
+  CardBody,
+  Code,
+  Modal,
+  ModalBody,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  Select,
+  SelectItem,
+  Spinner,
+  Tab,
+  Tabs,
+  useDisclosure,
+} from "@nextui-org/react";
 import {
   SignupResponse,
   UserData,
@@ -14,15 +29,21 @@ import {
 import StatusModal from "@/components/Modal";
 import { checkPasswordStrength } from "@/app/validity/validatePassword";
 import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { countryNames } from "@/config/country";
 
 export default function Login() {
-  console.log(process.env.NEXTAUTH_URL, process.env.GOOGLE_CLIENT_SECRET);
+  const router = useRouter();
   const [formData, setFormData] = useState<UserData>();
   const [sucessModal, setSuccessModal] = useState<boolean>(false);
   const [failedModal, setFailedsModal] = useState<boolean>(false);
   const [UserDataError, setError] = useState<UserDataError>({});
   const [isLoading, setLoading] = useState<boolean>(false);
   const [isdisabled, setDisabled] = useState<boolean>(false);
+  const [accept, setAccept] = useState<boolean>(false);
+  const [showPolicy, setPolicy] = useState<boolean>(false);
+  const { isOpen, onOpen, onOpenChange } = useDisclosure();
+  const [modalError, setModalError] = useState<boolean>();
   useEffect(() => {
     setDisabled(false);
     if (formData?.othername == "") {
@@ -30,7 +51,7 @@ export default function Login() {
       setError((prev) => {
         return {
           ...prev,
-          othername: "othername length must be more than 23",
+          othername: "othername length must be more than 2 or 3",
         };
       });
     }
@@ -39,11 +60,60 @@ export default function Login() {
       setError((prev) => {
         return {
           ...prev,
-          surnamee: "surname  length must be more than 3",
+          surname: "surname  length must be more than 3",
+        };
+      });
+    } else {
+      setDisabled(false);
+      setError((prev) => {
+        return {
+          ...prev,
+          surname: "",
         };
       });
     }
-    if (formData?.password !== formData?.rePassword || !formData?.password) {
+    if ((formData?.othername ?? "")?.length < 3) {
+      setDisabled(true);
+      setError((prev) => {
+        return {
+          ...prev,
+          othername: "othername length must be more than 3",
+        };
+      });
+    } else {
+      setDisabled(false);
+      setError((prev) => {
+        return {
+          ...prev,
+          othername: "",
+        };
+      });
+    }
+    if (
+      (formData?.email ?? "")?.length < 10 ||
+      !formData?.email?.includes("gmail.com")
+    ) {
+      setDisabled(true);
+      setError((prev) => {
+        return {
+          ...prev,
+          email: "Enter valid gmail",
+        };
+      });
+    } else {
+      setDisabled(false);
+      setError((prev) => {
+        return {
+          ...prev,
+          email: "",
+        };
+      });
+    }
+
+    if (
+      (formData && formData?.password !== formData?.rePassword) ||
+      !formData?.password
+    ) {
       setDisabled(true);
       setError((prev) => {
         return {
@@ -53,32 +123,67 @@ export default function Login() {
         };
       });
     } else {
-      checkPasswordStrength(formData?.password ?? "").then((result) => {
-        if (result == "Password is strong") {
-          setError((prev) => {
-            return {
-              ...prev,
-              password: "Password is strong",
-              rePassword: "Password is strong",
-            };
-          });
-        } else {
-          setDisabled(true);
-          setError((prev) => {
-            return {
-              ...prev,
-              password: result,
-              rePassword: result,
-            };
-          });
-        }
+      setDisabled(false);
+      setError((prev) => {
+        return {
+          ...prev,
+          password: "",
+          rePassword: "",
+        };
       });
     }
+    if (formData && !formData.country && !formData.gender) {
+      setDisabled(true);
+      setError((prev) => {
+        return {
+          ...prev,
+          gender: "Gender require",
+          country: "Country  required",
+        };
+      });
+    } else {
+      setDisabled(false);
+      setError((prev) => {
+        return {
+          ...prev,
+          gender: "",
+          country: "",
+        };
+      });
+      checkPasswordStrength(formData?.password ?? "")
+        .then((result) => {
+          if (result == "Password is strong") {
+            setError((prev) => {
+              return {
+                ...prev,
+                password: "Password is strong",
+                rePassword: "Password is strong",
+              };
+            });
+          } else {
+            setDisabled(true);
+            setError((prev) => {
+              return {
+                ...prev,
+                password: result,
+                rePassword: result,
+              };
+            });
+          }
+        })
+        .catch(() => {
+          setModalError(true);
+        });
+    }
+  
   }, [
     formData?.surname,
     formData?.othername,
     formData?.password,
     formData?.rePassword,
+    formData?.country,
+    formData?.gender,
+  
   ]);
   const handleSubmit = async (e: any) => {
     // const confirm = (
@@ -88,12 +193,12 @@ export default function Login() {
     //   othername,
     //   email
     // ) => {};
-
+    console.log('Parsing');
     setLoading(true);
     e.preventDefault();
     setError({});
 
-    if (formData?.password && formData.password.length < 5) {
+    if (formData && formData.password != formData.rePassword) {
       setError((prev) => {
         return {
           ...prev,
@@ -102,6 +207,7 @@ export default function Login() {
         };
       });
     }
+
     const response = await signup(formData as UserData);
     if (response.status == 400 || response.status == 500) {
       setError((prev: UserDataError) => {
@@ -110,9 +216,14 @@ export default function Login() {
       setFailedsModal(true);
 
       console.log(UserDataError, "Ji");
-    } else if (response.status == 201) {
+    } 
+    else if (response.status == 201) {
       setLoading(false);
-      setSuccessModal(!sucessModal);
+      console.log('Success;', sucessModal)
+      setSuccessModal(false)
+      console.log('Success;', sucessModal)
+      setSuccessModal(true);
+      console.log('Success;', sucessModal)
     }
     setLoading(false);
     // Handle form submission, e.g., send data to the server
@@ -124,25 +235,212 @@ export default function Login() {
       className="flex justify-between bg-white h-full w-full relative items-center flex-row "
       data-label="sign-in"
     >
+      {modalError ? (
+        <StatusModal
+          status="PASSWORD_RESET_FAILED"
+          onSendActivationLink={() => {
+            setModalError(false);
+          }}
+        />
+      ) : (
+        ""
+      )}
+      {
+        <Modal
+          isOpen={isOpen}
+          onOpenChange={onOpenChange}
+          isDismissable={false}
+          isKeyboardDismissDisabled={true}
+          size="4xl"
+        >
+          <ModalContent>
+            {(onClose) => (
+              <>
+                <ModalHeader className="flex flex-col gap-1">
+                  Modal Title
+                </ModalHeader>
+                <ModalBody>
+                  <div className="flex w-full flex-col">
+                    <Tabs aria-label="Options">
+                      <Tab key="Basic Contact Information" title="Basic Contact Information:">
+                        <Card>
+                          <CardBody className="text-[monospace] overflow-scroll max-h-[50vh] max-w-md mx-auto bg-white rounded-xl shadow-md  md:max-w-2xl">
+                          Do you consent to us sharing the following information to second-party sites? 
+                          <div className="max-w-md">
+                              <ul className="divide-y divide-gray-200">
+                                
+                                <li className="py-4">
+                                  <h3 className="text-lg font-semibold">Basic Contact Information:</h3>
+                                  <ul className="mt-2">
+                                    <li>Full Name</li>
+                                    <li>Email Address</li>
+                                    <li>Phone Number</li>
+                                  </ul>
+                                </li>
+
+                                
+                                <li className="py-4">
+                                  <h3 className="text-lg font-semibold">Demographic Information:</h3>
+                                  <ul className="mt-2">
+                                    <li>Age</li>
+                                    <li>Gender</li>
+                                    <li>Location (City, State, Country)</li>
+                                  </ul>
+                                </li>
+
+                                <li className="py-4">
+                                  <h3 className="text-lg font-semibold">Account Information:</h3>
+                                  <ul className="mt-2">
+                                    <li>Username</li>
+                                    <li>Password (only if necessary for authentication on the second-party site)</li>
+                                  </ul>
+                                </li>
+
+                                
+                                <li className="py-4">
+                                  <h3 className="text-lg font-semibold">Transaction Data:</h3>
+                                  <ul className="mt-2">
+                                    <li>Purchase history</li>
+                                    <li>Order details</li>
+                                    <li>Payment information (only if necessary for transactions on the second-party site)</li>
+                                  </ul>
+                                </li>
+
+                                
+                                <li className="py-4">
+                                  <h3 className="text-lg font-semibold">Preferences and Interests:</h3>
+                                  <ul className="mt-2">
+                                    <li>Product preferences</li>
+                                    <li>Interests or hobbies</li>
+                                    <li>Favorite categories or brands</li>
+                                  </ul>
+                                </li>
+                                <li className="py-4">
+                                  <h3 className="text-lg font-semibold">Communication Preferences:</h3>
+                                  <ul className="mt-2">
+                                    <li>Opt-in preferences for marketing communications</li>
+                                    <li>Preferred communication channels (e.g., email, SMS)</li>
+                                  </ul>
+                                </li>
+                                <li className="py-4">
+                                  <h3 className="text-lg font-semibold">Social Media Information (if applicable):</h3>
+                                  <ul className="mt-2">
+                                    <li>Social media handle</li>
+                                    <li>Connections or friends list (if relevant for social sharing features)</li>
+                                  </ul>
+                                </li>
+                              </ul>
+                            </div>
+                         </CardBody>
+                        </Card>
+                      </Tab>
+                      <Tab key="Device Info" title="Device Information:">
+                        <Card>
+                          <CardBody className="overflow-scroll max-h-[50vh] max-w-md mx-auto bg-white rounded-xl shadow-md md:max-w-2xl">
+                          <div>
+                            <div className="">
+                              <ul className="divide-y divide-gray-200">
+                                <li>
+                                  <h3 className="text-lg font-semibold">Device Information:</h3>
+                                  <ul className="mt-2">
+                                    <li>Device type (e.g., mobile, desktop)</li>
+                                    <li>Browser type and version</li>
+                                  </ul>
+                                </li>
+
+                                <li>
+                                  <h3 className="text-lg font-semibold">Behavioral Data:</h3>
+                                  <ul className="mt-2">
+                                    <li>Browsing history</li>
+                                    <li>Clickstream data</li>
+                                    <li>Interaction with advertisements or promotions</li>
+                                  </ul>
+                                </li>
+
+                                <li>
+                                  <h3 className="text-lg font-semibold">Third-Party Integrations:</h3>
+                                  <ul className="mt-2">
+                                    <li>Information shared with third-party services or platforms integrated with the second-party site (e.g., social media plugins, analytics tools)</li>
+                                  </ul>
+                                </li>
+
+                                <li>
+                                  <h3 className="text-lg font-semibold">Feedback and Reviews:</h3>
+                                  <ul className="mt-2">
+                                    <li>Product reviews or feedback submitted on the second-party site</li>
+                                  </ul>
+                                </li>
+                              </ul>
+                            </div>
+                          </div>
+
+                          </CardBody>
+                        </Card>
+                      </Tab>
+                     <Tab key="data" title="How Your Data Will be Used">
+                        <Card>
+                          <CardBody>
+                            We believe in fostering collaborative partnerships to enrich your experience. 
+                            By sharing select user information with our trusted second-party site, we aim
+                             to personalize your journey, tailor recommendations, and streamline transactions, 
+                             ensuring a seamless and rewarding interaction tailored to your preferences and needs."
+                          </CardBody>
+                        </Card>
+                      </Tab>
+                    </Tabs>
+                  </div>
+                </ModalBody>
+                <ModalFooter>
+                  <Button
+                    color="danger"
+                    variant="light"
+                    onPress={() => {
+                      setAccept(false);
+
+                      onClose();
+                    }}
+                  >
+                    Reject Policy
+                  </Button>
+                  <Button
+                    color="primary"
+                    onPress={() => {
+                      setAccept(true);
+                      onClose();
+                    }}
+                  >
+                    Accept Policy
+                  </Button>
+                </ModalFooter>
+              </>
+            )}
+          </ModalContent>
+        </Modal>
+      }
+
       {sucessModal && (
         <div className=" flex items-center justify-center top-0 right-0 absolute w-full h-full">
           <StatusModal
             status="CREATED_SUCCESS"
+            booleanCallback = {setSuccessModal}
             onSendActivationLink={() => {
-              setSuccessModal(false);
+              console.log('done')
+              setSuccessModal;
             }}
           />
         </div>
       )}
 
-      {failedModal && (
+      {
+      failedModal && (
         <div className=" flex items-center justify-center top-0 right-0 absolute w-full h-full ">
           <StatusModal
             status="LOGIN_FAILED"
             onSendActivationLink={setFailedsModal(false)}
           />
         </div>
-      )}
+      )
+      }
 
       {isLoading && (
         <div className="flex items-center justify-center top-0 right-0 absolute w-full h-full z-[1000]">
@@ -154,6 +452,8 @@ export default function Login() {
           </div>
         </div>
       )}
+
+
       <div className=" w-full h-full absolute  ">
         <div className="lg:hidden bg-purple-900 overflow-hidden relative w-full h-full">
           <div className="w-full absolute left-0 top-0 ">
@@ -189,10 +489,6 @@ export default function Login() {
           <h1 className="text-slate-800 text-xl font-[600] font-[Helvetica]">
             Sign Up.
           </h1>
-          <h1 className="text-slate-600 font-[450] mb-5 mt-2 text-[12.5px]">
-            Log in with your KICData data that you entered during your
-            registration
-          </h1>
 
           <div className="mb-20">
             <Button
@@ -223,11 +519,13 @@ export default function Login() {
                   <Input
                     type="text"
                     placeholder="Jessica"
-                    onChange={(e: any) =>
+                    onChange={(e: any) =>{
+                      e.preventDefault()
                       setFormData((prev) => ({
                         ...prev,
                         surname: e.target.value,
                       }))
+                    }
                     }
                     name="username"
                     classNames={{
@@ -254,12 +552,13 @@ export default function Login() {
                   <Input
                     type="text"
                     placeholder="Your other name"
-                    onChange={(e: any) =>
+                    onChange={(e: any) =>{
+                      e.preventDefault();
                       setFormData((prev) => ({
                         ...prev,
                         othername: e.target.value,
                       }))
-                    }
+                    }}
                     name="othername"
                     classNames={{
                       inputWrapper: "py-2 rounded-md h-10 ",
@@ -283,12 +582,13 @@ export default function Login() {
                   type="email"
                   placeholder="joe@gmail.com"
                   name="email"
-                  onChange={(e: any) =>
+                  onChange={(e: any) =>{
+                    e.preventDefault()
                     setFormData((prev) => ({
                       ...prev,
                       email: e.target.value,
                     }))
-                  }
+                  }}
                   classNames={{
                     inputWrapper: "py-2 rounded-md h-10 ",
                   }}
@@ -318,11 +618,12 @@ export default function Login() {
                 <Input
                   type="password"
                   onChange={(e: any) =>
+                    {
                     setFormData((prev) => ({
                       ...prev,
                       password: e.target.value,
                     }))
-                  }
+                  }}
                   name="password"
                   placeholder="At least 8 character"
                   classNames={{
@@ -355,11 +656,12 @@ export default function Login() {
                   type="password"
                   name="rePassword"
                   onChange={(e: any) =>
+                    {
                     setFormData((prev) => ({
                       ...prev,
                       rePassword: e.target.value,
                     }))
-                  }
+                  }}
                   placeholder="Confirm Your Password "
                   classNames={{
                     inputWrapper: "py-2 rounded-md h-10",
@@ -367,56 +669,120 @@ export default function Login() {
                 />
               </div>
 
-              <Select
-                onChange={(e: any) =>
-                  setFormData((prev) => ({ ...prev, gender: e.target.value }))
-                }
-                name="gender"
-                label="Select Your Genders"
-                className="max-w-x"
-              >
-                {["MALE", "FEMALE", "PREFER-NOT-TO-SAY"].map((gender) => (
-                  <SelectItem key={gender} value={gender}>
-                    {gender}
-                  </SelectItem>
-                ))}
-              </Select>
+              <div className="w-full  flex justify-between items-center h-full space-x-2 ">
+                <div className="w-full space-y-2">
+                  <Code color="warning">{UserDataError.gender}</Code>
+                  <Select
+                    onChange={(e: any) =>{
+                      setFormData((prev) => ({
+                        ...prev,
+                        gender: e.target.value,
+                      }))
+                    }}
+                    name="gender"
+                    label="Select Your Genders"
+                    className="max-w-x"
+                  >
+                    {[
+                      ["MALE", "Male"],
+                      ["FEMALE", "Female"],
+                      ["PREFER-NOT-TO-SAY", "Prefer Not Say"],
+                    ].map((gender) => (
+                      <SelectItem key={gender[0]} value={gender[0]}>
+                        {gender[1]}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                </div>
 
-              <div className="space-x-">
-                <input
-                  type="checkbox"
-                  onChange={(e: any) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      keepLoggedIn: e.target.value,
-                    }))
-                  }
-                />
-                <label className="text-[12px] text-slate-900 font-[600] font-[Helvetica]">
-                  Keep me logged in
-                </label>
+                <div className="w-full space-y-2">
+                  <Code color="warning">{UserDataError.country}</Code>
+                  <Select
+                    onChange={(e: any) =>{
+                    
+                      setFormData((prev) => ({
+                        ...prev,
+                        country: e.target.value,
+                      }))
+                    }}
+                    name="country"
+                    label="Select Your Country"
+                    className="w-full"
+                  >
+                    {countryNames.map((country: string) => (
+                      <SelectItem key={country} value={country}>
+                        {country}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-x-3 mt-5 flex h-full items-center">
+                {accept ? (
+                  <>
+                    <input
+                      checked={accept}
+                      type="checkbox"
+                      onChange={(e: any) =>{
+                        e.preventDefault()
+                        setFormData((prev) => ({
+                          ...prev,
+                          keepLoggedIn: e.target.value,
+                        }))
+                      }
+                    }
+                    />
+                    <label
+                      onClick={() => onOpen()}
+                      className="text-[12px] text-slate-900 font-[600] font-[Helvetica]"
+                    >
+                      <Code color="success">
+                        {" "}
+                        You agree to this website Privacy & Policy
+                      </Code>
+                    </label>
+                  </>
+                ) : (
+                  <label
+                    onClick={() => {
+                      onOpen();
+                    }}
+                    className="pointer text-[12px] text-red-500 font-[600] font-[Helvetica]"
+                  >
+                    Read and agree to this website Privacy & Policy
+                  </label>
+                )}
               </div>
             </div>
             <Button
               disabled={isdisabled}
               onClick={handleSubmit}
-              className="bg-purple-500 text-slate-100 rounded-md "
+              className="bg-purple-500 text-slate-100 rounded-md"
             >
               Sign Up
             </Button>
             <div className="space-y-5 flex items-center flex-col">
-              <h1 className="text-purple-900 space-x-2">
-                <span>Don't here an account?</span>
-                <span className="text-purple-800 font-[600]">Login</span>
+              <h1 className="text-purple-800 pointer">
+                Already have account ?
               </h1>
-              <h1 className="text-purple-800">Already have account ?</h1>
+              <h1 className="text-purple-900 space-x-2">
+                <span
+                  onClick={() => {
+                    router.push("/auth/login");
+                  }}
+                  className="text-purple-800 font-[600] pointer"
+                >
+                  Login
+                </span>
+              </h1>
             </div>
           </form>
         </div>
       </div>
       <div className="w-full h-full lg:block hidden overflow-hidden ">
         <div className="bg-purple-900 overflow-hidden relative w-full h-full">
-          <div className=" rounded-md px-10  w-full h-full flex flex-col items-center right-0  mt-[20%] absolute z-[1000]">
+          <div className=" rounded-md px-10  w-full h-full flex flex-col items-center right-0  mt-[20%] absolute z-[10]">
             <div className="w-[500px] space-y-2 flex flex-col items-center shadow-2xl shadow-purple-600 bg-white px-5 py-2 rounded-md">
               <h1 className="font-[600] text-purple-900 ">
                 Keep your data safe

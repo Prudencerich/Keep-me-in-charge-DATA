@@ -1,4 +1,5 @@
 export interface UserData {
+  country?: string;
   surname?: string;
   name?: string;
   username?: string;
@@ -18,6 +19,7 @@ export interface UserDataError {
   rePassword?: string;
   gender?: string;
   keepLoggedIn?: boolean;
+  country?: string;
 }
 
 export interface SignupResponse {
@@ -30,7 +32,7 @@ export interface SignupResponse {
 export async function signup(userData: UserData): Promise<SignupResponse> {
   try {
     // Replace the URL with your actual signup endpoint
-    const apiUrl = " http://127.0.0.1:8000/auth/users/";
+    const apiUrl = "https://xpiral.pythonanywhere.com/auth/users/";
 
     // Adjust the payload based on your API requirements
     const payload: UserData = {

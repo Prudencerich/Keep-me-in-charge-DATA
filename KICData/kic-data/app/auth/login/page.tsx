@@ -1,17 +1,30 @@
+"use client";
+import { authorize } from "@/app/helpers/XXRSAgent/activate";
+import StatusModal from "@/components/Modal";
 import DotGrid from "@/design/dot";
 import { Button } from "@nextui-org/button";
 import { Input } from "@nextui-org/input";
-import React from "react";
+import { Spinner } from "@nextui-org/react";
+import { signIn, useSession } from "next-auth/react";
+import { redirect, useRouter } from "next/navigation";
+import React, { useEffect, useState } from "react";
 
 export default function Login() {
+  const session = useSession();
+  const router = useRouter();
+  const [email, setEmail] = useState<string>();
+  const [auth, setAuth] = useState<boolean>(false);
+  const [failed, error] = useState<boolean>(false);
+  const [password, setPassword] = useState<string>();
+
   return (
     <div
-      className="flex justify-between bg-white h-full w-full relative items-center flex-row "
+      className="relative flex flex-row items-center justify-between w-full h-full bg-white "
       data-label="sign-in"
     >
-      <div className=" w-full h-full absolute  ">
-        <div className="lg:hidden bg-purple-900 overflow-hidden relative w-full h-full">
-          <div className="w-full absolute left-0 top-0 ">
+      <div className="absolute w-full h-full ">
+        <div className="relative w-full h-full overflow-hidden bg-purple-900 lg:hidden">
+          <div className="absolute top-0 left-0 w-full ">
             <DotGrid
               gridSize={100}
               spacing={10}
@@ -23,7 +36,7 @@ export default function Login() {
       </div>
 
       <div
-        className="z-10 rounded-md flex   items-center  justify-center h-full w-full "
+        className="z-10 flex items-center justify-center w-full h-full rounded-md "
         data-label="label"
       >
         <div
@@ -41,7 +54,24 @@ export default function Login() {
               KICData Privacy
             </h1>
           </div>
-          <form method="POST" className="  rounded-md  flex flex-col space-y-5">
+
+          {failed && (
+            <StatusModal
+              status="LOGIN_FAILED"
+              onSendActivationLink={() => {}}
+            />
+          )}
+
+          {auth && (
+            <div className="flex items-center justify-center top-0 right-0 absolute w-full h-full z-[1000]">
+              <div className="bg-white shadow-2xl shadow-blue-900   rounded-md w-full  max-w-[450px] sm:w-[500px] flex space-x-5 items-center place-items-center justify-center h-[300px]">
+                <Spinner color="secondary" />
+                <h1 className="text-purple-800 font-[600]">Logging in...</h1>
+              </div>
+            </div>
+          )}
+
+          <form method="POST" className="flex flex-col space-y-5 rounded-md ">
             <div>
               <h1 className="text-slate-800 text-xl font-[600] font-[Helvetica]">
                 Log in.
@@ -59,7 +89,10 @@ export default function Login() {
                   type="text"
                   placeholder="joe@gmail.com"
                   name="username"
-                  className="bg-white  w-full px-4 py-2 border border-slate-400 rounded-md focus:outline-none focus:border-slate-900"
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                  }}
+                  className="w-full px-4 py-2 bg-white border rounded-md border-slate-400 focus:outline-none focus:border-slate-900"
                 />
               </div>
 
@@ -68,36 +101,65 @@ export default function Login() {
                   Password
                 </label>
                 <input
-                  type="text"
+                  type="password"
                   name="username"
                   placeholder="At least 8 character"
-                  className="w-full px-4 py-2 border bg-white  border-slate-400 rounded-md focus:outline-none focus:border-slate-900"
+                  onChange={(e) => {
+                    setPassword(e.target.value ?? "");
+                  }}
+                  className="w-full px-4 py-2 bg-white border rounded-md border-slate-400 focus:outline-none focus:border-slate-900"
                 />
               </div>
-
-              <div className="space-x-2 bg-white ">
-                <input type="checkbox" />
-                <label className="text-slate-900 font-[400] font-[Helvetica]">
-                  Keep me logged in
-                </label>
-              </div>
             </div>
-            <Button className="bg-purple-500 text-slate-100 rounded-md ">
+            <Button
+              onClick={(e) => {
+                if (email && password) {
+                  
+                    (async () => {
+                      setAuth(true);
+                      error(false);
+                      await signIn("credentials", {
+                        email,
+                        password,
+                        redirect: false,
+                      });
+                      setAuth(false);
+                      error(true);
+                    })().catch((e) =>{
+                    error(true);
+                    setAuth(false);
+                    })
+                }
+              }}
+              className="bg-purple-500 rounded-md text-slate-100 "
+            >
               Log in
             </Button>
-            <div className="space-y-5 flex items-center flex-col">
-              <h1 className="text-purple-900 space-x-2">
-                <span>Don't here an account?</span>
-                <span className="text-purple-800 font-[600]">Sign up</span>
+            <div className="flex flex-col items-center space-y-5">
+              <h1 className="space-x-2 text-purple-900">
+                <span>Don't heve an account?</span>
+                <span
+                  className="text-purple-800 font-[600] pointer"
+                  onClick={() => {
+                    router.push("/auth/signup");
+                  }}
+                >
+                  Sign up
+                </span>
               </h1>
-              <h1 className="text-purple-800">Forget password?</h1>
+              <a
+                href="/auth/reset_password"
+                className="pointer text-purple-800"
+              >
+                Forget password?
+              </a>
             </div>
           </form>
         </div>
       </div>
-      <div className="w-full h-full lg:block hidden overflow-hidden ">
-        <div className="bg-purple-900 overflow-hidden relative w-full h-full">
-          <div className=" rounded-md px-10  w-full h-full flex flex-col items-center right-0  mt-[20%] absolute z-[1000]">
+      <div className="hidden w-full h-full overflow-hidden lg:block ">
+        <div className="relative w-full h-full overflow-hidden bg-purple-900">
+          <div className=" rounded-md px-10  w-full h-full flex flex-col items-center right-0  mt-[20%] absolute z-[1]">
             <div className="w-[500px] space-y-2 flex flex-col items-center shadow-2xl shadow-purple-600 bg-white px-5 py-2 rounded-md">
               <h1 className="font-[600] text-purple-900 ">
                 Keep your data safe
@@ -126,21 +188,22 @@ export default function Login() {
                 <p className="text-[15px] text-purple-800 font-[Arial, Helvetica, sans-serif] font-[500] ">
                   Keep your eyes on your data, focus on your privacy rather than
                 </p>
-                <div className="rotate-260 absolute top-[18%] mr-[30px] border-r-white border-t-white border-r-[7px] border-t-[7px] h-[90px] w-[200px] space-y-2 flex flex-col items-center  bg-transparent  px-5 py-2 rounded-md"></div>
+                <div className="rotate-260 absolute top-[18%] mr-[20px] border-r-white border-t-white border-r-[7px] border-t-[7px] h-[90px] w-[200px] space-y-2 flex flex-col items-center  bg-transparent  px-5 py-2 rounded-md"></div>
               </div>
             </div>
           </div>
-          <div className="w-full absolute right-0 top-0   hidden lg:flex">
+          <div className="absolute top-0 right-0 hidden w-full lg:flex">
             <DotGrid
-              gridSize={150}
+              gridSize={25}
               spacing={15}
               dotRadius={0.51}
               dotColor="white"
             />
           </div>
-          <div className="right-0 top-0 absolute ">
+
+          <div className="absolute top-0 right-0 ">
             <DotGrid
-              gridSize={225}
+              gridSize={25}
               spacing={15}
               dotRadius={0.51}
               dotColor="yellow"
@@ -148,18 +211,18 @@ export default function Login() {
           </div>
         </div>
 
-        <div className="bg-purple-900 relative w-full">
-          <div className="w-full absolute left-0 bottom-0 hidden lg:flex">
+        <div className="relative w-full bg-purple-900">
+          <div className="absolute bottom-0 left-0 hidden w-full lg:flex">
             <DotGrid
-              gridSize={150}
+              gridSize={25}
               spacing={20}
               dotRadius={0.51}
               dotColor="blue"
             />
           </div>
-          <div className="left-1  bottom-0 absolute ">
+          <div className="absolute bottom-0 left-1 ">
             <DotGrid
-              gridSize={125}
+              gridSize={25}
               spacing={20}
               dotRadius={0.69}
               dotColor="orange"

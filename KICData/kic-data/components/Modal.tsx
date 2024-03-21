@@ -12,9 +12,16 @@ import {
 import { ResendActivateEmailLink } from "@/app/helpers/resendActivationLink";
 import { constants } from "buffer";
 import { Result } from "postcss";
+import Link from "next/link";
+import {Router} from "next/router";
+import {useRouter} from "next/navigation";
 
 type AccountStatus =
   | "ACTIVATION_FAILED"
+  | "PASSWORD_RESET_LINK_SUCCESS"
+  | "PASSWORD_RESET_LINK_FAILED"
+  | "PASSWORD_RESET_FAILED"
+  | "PASSWORD_RESET_SUCCESS"
   | "RE_ACTIVATION_FAILED"
   | "EMAIL_RESEND_ACTIVATION_LINK_SUCCESS"
   | "EMAIL_RESEND_ACTIVATION_LINK_FAILED"
@@ -27,17 +34,20 @@ type AccountStatus =
 interface StatusModalProps {
   email?: string;
   status: AccountStatus;
+  booleanCallback?:any
   onSendActivationLink: any; // Function to send activation link
 }
 
 const StatusModal: React.FC<StatusModalProps> = ({
   status,
   onSendActivationLink,
+  booleanCallback,
 }) => {
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   const [_status, setStatus] = useState<string>(status);
   const [email, setEmail] = useState<string>(status);
+  const router = useRouter()
 
   React.useEffect(() => {
     onOpen();
@@ -54,13 +64,22 @@ const StatusModal: React.FC<StatusModalProps> = ({
       case "LOGIN_FAILED":
         return "Login Failed";
       case "ACTIVATION_SUCCESS":
-        return "Email Confirm Successful";
+        return "Email Confirmatin Successful";
       case "ACTIVATION_FAILED":
         return "Activation Failed";
       case "EMAIL_RESEND_ACTIVATION_LINK_SUCCESS":
         return "Email Verification Resend Successfully";
       case "EMAIL_RESEND_ACTIVATION_LINK_FAILED":
         return "Email Verification Links Failed On Resend";
+      case "PASSWORD_RESET_LINK_SUCCESS":
+        return "Password Reset Link Sent Successfully";
+      case "PASSWORD_RESET_LINK_FAILED":
+        return "Password Reset Link Sent Failed";
+      case "PASSWORD_RESET_SUCCESS":
+        return "Password Reset  Successfully";
+      case "PASSWORD_RESET_FAILED":
+        return "Password Reset Failed";
+
       default:
         return "Status";
     }
@@ -77,6 +96,7 @@ const StatusModal: React.FC<StatusModalProps> = ({
             <Button
               color="primary"
               onPress={() => {
+                if(booleanCallback)booleanCallback(false)
                 onSendActivationLink();
                 onClose();
               }}
@@ -92,6 +112,7 @@ const StatusModal: React.FC<StatusModalProps> = ({
             <Button
               color="primary"
               onPress={() => {
+                if(booleanCallback)booleanCallback(false)
                 onClose();
                 onSendActivationLink();
               }}
@@ -111,6 +132,7 @@ const StatusModal: React.FC<StatusModalProps> = ({
                 onClick={() => {
                   onSendActivationLink();
                   onClose();
+                  if(booleanCallback)booleanCallback(false)
                 }}
               >
                 Close
@@ -119,7 +141,8 @@ const StatusModal: React.FC<StatusModalProps> = ({
                 color="primary"
                 onClick={() => {
                   onSendActivationLink();
-                  onOpen();
+                  onClose();
+                  if(booleanCallback)booleanCallback(false)
                 }}
               >
                 {" "}
@@ -137,12 +160,13 @@ const StatusModal: React.FC<StatusModalProps> = ({
             <>
               <Input
                 onChange={(e) => setEmail(e.target.value)}
-                className="text-slate-900 border-blue-500"
+                className="border-blue-500 text-slate-900"
               />
               <Button
                 color="primary"
                 onClick={() => {
                   onClose();
+                  if(booleanCallback)booleanCallback(false)
                   ResendActivateEmailLink(
                     email ?? "",
                     "ACTIVATION_FAILED"
@@ -151,6 +175,7 @@ const StatusModal: React.FC<StatusModalProps> = ({
                     console.log("log in", result);
                   });
                   onSendActivationLink();
+                  
                 }}
               >
                 Resend Link
@@ -166,11 +191,12 @@ const StatusModal: React.FC<StatusModalProps> = ({
             <>
               <Input
                 onChange={(e) => setEmail(e.target.value)}
-                className="text-slate-900 border-blue-500"
+                className="border-blue-500 text-slate-900"
               />
               <Button
                 color="primary"
                 onClick={() => {
+                  if(booleanCallback)booleanCallback(false)
                   onClose();
                   ResendActivateEmailLink(
                     email ?? "",
@@ -195,13 +221,15 @@ const StatusModal: React.FC<StatusModalProps> = ({
               <Button
                 color="success"
                 onClick={() => {
+                  if(booleanCallback)booleanCallback(false)
                   onClose();
                   onSendActivationLink();
+                  if(booleanCallback)booleanCallback(false)
                 }}
               >
                 Close
               </Button>
-              <Button color="primary" onPress={onSendActivationLink}>
+              <Button color="primary" onPress={()=>{onSendActivationLink();router.push('/auth/login')}} >
                 Login
               </Button>
             </>
@@ -216,6 +244,71 @@ const StatusModal: React.FC<StatusModalProps> = ({
               color="success"
               onClick={() => {
                 onClose();
+                if(booleanCallback)booleanCallback(false)
+              }}
+            >
+              Close
+            </Button>
+          ),
+        };
+      case "PASSWORD_RESET_LINK_SUCCESS":
+        return {
+          content:
+            "Password reset link sent is sent successfully, if you have an email associated with our database you will recive a notification on your email, on how to rest your password. Check your spam is not seen . Thanks!",
+          actions: (
+            <Button
+              color="success"
+              onClick={() => {
+                onClose();
+                if(booleanCallback)booleanCallback(false)
+              }}
+            >
+              Close
+            </Button>
+          ),
+        };
+      case "PASSWORD_RESET_SUCCESS":
+        return {
+          content: "You Have Successfully Change Your Password",
+          actions: (
+            <Button
+            className="text-white"
+              color="success"
+              onClick={() => {
+                onClose();
+                router.push('/auth/login')
+              }}
+            >
+            Login
+            </Button>
+          ),
+        };
+      case "PASSWORD_RESET_SUCESS":
+        return {
+          content: "You Have Successfully Change Your Password",
+          actions: (
+            <Button
+              color="success"
+              onClick={() => {
+                if(booleanCallback)booleanCallback(false)
+                onClose();
+              }}
+            >
+              Close
+            </Button>
+          ),
+        };
+      case "PASSWORD_RESET_FAILED":
+        return {
+          content:
+            "Your attempt to changed your password was unable to be processed, please check your credentials and verify you tokens or contact KICData Privacy teams. Thanks",
+          actions: (
+            <Button
+              color="warning"
+
+              onClick={() => {
+                onClose();
+                if(booleanCallback)booleanCallback(false)
               }}
             >
               Close
@@ -230,12 +323,13 @@ const StatusModal: React.FC<StatusModalProps> = ({
             <>
               <Input
                 onChange={(e) => setEmail(e.target.value)}
-                className="text-slate-900 border-blue-500"
+                className="border-blue-500 text-slate-900"
               />
 
               <Button
                 color="primary"
                 onClick={() => {
+                  if(booleanCallback)booleanCallback(false)
                   onClose();
                   ResendActivateEmailLink(email ?? "").then((result) =>
                     setStatus(result)
@@ -257,7 +351,17 @@ const StatusModal: React.FC<StatusModalProps> = ({
 
   return (
     <div>
-      <Modal isOpen={isOpen} onClose={onClose}>
+      <Modal isOpen={isOpen} onClose={
+        ()=>{
+        if(booleanCallback){
+          booleanCallback(false)
+        }
+        if(status ==='PASSWORD_RESET_SUCCESS'){
+          router.push('/auth/login')
+        }
+        onClose()
+      }
+        }>
         <ModalContent>
           <ModalHeader>{getTitle()}</ModalHeader>
           <ModalBody>{content}</ModalBody>
